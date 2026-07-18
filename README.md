@@ -1,6 +1,6 @@
 # HL7 / FHIR Interoperability Reconciliation
 
-A pipeline and dashboard that reconciles legacy **HL7 v2** healthcare data feeds against modern **FHIR** feeds for the same patients — detecting mismatches in lab results, coding, and timing — with a natural-language query layer built on **Snowflake Cortex Analyst**.
+A pipeline and dashboard that reconciles legacy **HL7 v2** healthcare data feeds against modern **FHIR** feeds for the same patients — detecting mismatches in lab results, coding, and timing, with a natural-language query layer built on **Snowflake Cortex Analyst**.
 
 ---
 
