@@ -1,0 +1,130 @@
+name: hl7_fhir_reconciliation
+description: >
+  Semantic model for reconciling HL7 v2 and FHIR patient data. This model
+  covers discrepancies detected between a modern FHIR-based data source and
+  a legacy HL7 v2 feed for the same patients -- covering lab result value
+  differences, coding mismatches, timing drift, and missing records.
+
+tables:
+  - name: DISCREPANCIES
+    description: >
+      One row per detected discrepancy between the FHIR and HL7 versions of
+      a patient's lab result. Each row represents a single field-level
+      mismatch that was found by comparing the two data sources on a shared
+      observation_id.
+    base_table:
+      database: HEALTHCARE_INTEROP_SIMPLE
+      schema: PUBLIC
+      table: DISCREPANCIES
+
+    dimensions:
+      - name: observation_id
+        expr: OBSERVATION_ID
+        data_type: string
+        description: Unique identifier for the specific lab observation being compared.
+
+      - name: patient_id
+        expr: PATIENT_ID
+        data_type: string
+        description: Unique identifier for the patient.
+
+      - name: patient_name
+        expr: PATIENT_NAME
+        data_type: string
+        description: The patient's full name.
+        synonyms:
+          - patient
+          - name
+
+      - name: encounter_id
+        expr: ENCOUNTER_ID
+        data_type: string
+        description: Unique identifier for the clinical encounter (visit) this lab result belongs to.
+        synonyms:
+          - visit
+          - visit id
+
+      - name: lab_code
+        expr: LAB_CODE
+        data_type: string
+        description: The LOINC (or local) code identifying which lab test this is.
+        synonyms:
+          - test code
+          - loinc code
+
+      - name: lab_name
+        expr: LAB_NAME
+        data_type: string
+        description: The human-readable name of the lab test, e.g. "Glucose [Mass/volume] in Blood".
+        synonyms:
+          - test name
+          - lab test
+
+      - name: discrepancy_type
+        expr: DISCREPANCY_TYPE
+        data_type: string
+        description: >
+          The category of mismatch detected. One of: VALUE_DISCREPANCY (the
+          lab result number differs between FHIR and HL7), CODING_MISMATCH
+          (the lab test code differs, e.g. LOINC vs a local code),
+          TIMING_DRIFT (the encounter timestamp differs), or MISSING_RECORD
+          (the record exists in FHIR but is absent from the HL7 feed).
+        synonyms:
+          - mismatch type
+          - discrepancy category
+          - type of mismatch
+          - issue type
+
+      - name: fhir_value
+        expr: FHIR_VALUE
+        data_type: string
+        description: The value as reported by the FHIR (modern) source for this field.
+
+      - name: hl7_value
+        expr: HL7_VALUE
+        data_type: string
+        description: The value as reported by the HL7 v2 (legacy) source for this field.
+
+    facts:
+      - name: discrepancy_count
+        expr: OBSERVATION_ID
+        data_type: string
+        description: Count of discrepancies. Use COUNT() on this for volume questions.
+
+verified_queries:
+  - name: total discrepancies by type
+    question: How many discrepancies are there of each type?
+    sql: >
+      SELECT discrepancy_type, COUNT(*) AS count
+      FROM DISCREPANCIES
+      GROUP BY discrepancy_type
+      ORDER BY count DESC
+
+  - name: patients with the most discrepancies
+    question: Which patients have the most discrepancies?
+    sql: >
+      SELECT patient_name, patient_id, COUNT(*) AS discrepancy_count
+      FROM DISCREPANCIES
+      GROUP BY patient_name, patient_id
+      ORDER BY discrepancy_count DESC
+      LIMIT 10
+
+  - name: coding mismatches only
+    question: Show me all coding mismatches
+    sql: >
+      SELECT patient_name, encounter_id, lab_name, fhir_value, hl7_value
+      FROM DISCREPANCIES
+      WHERE discrepancy_type = 'CODING_MISMATCH'
+
+  - name: missing records count
+    question: How many lab results are missing from the HL7 feed?
+    sql: >
+      SELECT COUNT(*) AS missing_count
+      FROM DISCREPANCIES
+      WHERE discrepancy_type = 'MISSING_RECORD'
+
+  - name: total discrepancy count
+    question: How many total discrepancies were found?
+    sql: >
+      SELECT COUNT(*) AS total_discrepancies
+      FROM DISCREPANCIES
